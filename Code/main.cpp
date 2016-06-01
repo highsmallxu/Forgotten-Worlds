@@ -7,110 +7,242 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
-#include "traqueboule.h"
 #include "mesh.h"
+#include "imageloader.h"
+
 
 using namespace std;			// make std accessible
-unsigned int W_fen = 800;  // largeur fenetre
-unsigned int H_fen = 800;  // hauteur fenetre
+
+
+
+//1-load hero,gun
 Mesh hero;
-Mesh bullet;
-
-
-double rotAngle = 0;
-
-void init_bull(const char * fileName){
-    bullet.loadMesh(fileName);
-}
+Mesh gun;
 void init_hero(const char * fileName){
     hero.loadMesh(fileName);
 }
+void init_gun(const char * fileName){
+    gun.loadMesh(fileName);
+}
 
+//2-load bullet texture mapping
+//2.1-loadTexture
+GLuint loadTexture(Image* image) {
+    GLuint textureId;
+    glGenTextures(1, &textureId); //Make room for our texture
+    glBindTexture(GL_TEXTURE_2D, textureId); //Tell OpenGL which texture to edit
+    //Map the image to the texture
+    glTexImage2D(GL_TEXTURE_2D,                //Always GL_TEXTURE_2D
+                 0,                            //0 for now
+                 GL_RGB,                       //Format OpenGL uses for image
+                 image->width, image->height,  //Width and height
+                 0,                            //The border of the image
+                 GL_RGB, //GL_RGB, because pixels are stored in RGB format
+                 GL_UNSIGNED_BYTE, //GL_UNSIGNED_BYTE, because pixels are stored
+                 //as unsigned numbers
+                 image->pixels);               //The actual pixel data
+    return textureId; //Returns the id of the texture
+}
+//2.2-load Image
+GLuint _textureId1;
+GLuint _textureId2;
+GLuint _textureId3;
+GLUquadric *quad;
+void init_bullet_texture(){
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_COLOR_MATERIAL);
+    
+    quad = gluNewQuadric();
+    Image* image1 = loadBMP("bullet1.bmp"); //grey
+    Image* image2 = loadBMP("bullet2.bmp"); //red
+    Image* image3 = loadBMP("earth.bmp"); //hero
+    _textureId1 = loadTexture(image1);  //grey
+    _textureId2 = loadTexture(image2);  //red
+    _textureId3 = loadTexture(image3); //hero
+    delete image1;
+    delete image2;
+    delete image3;
+}
 
-float bul_loc = -0.1;
-void display()
+//3-bullet control
+float x=1.8;
+float r;
+GLuint texture;
+void update(int value)
 {
-    if(bul_loc<-1){
-        bul_loc=-0.1;
+    r+=2.0f; //make bullet keep rotating
+    if(r>360.f)
+    {
+        r-=360;
     }
+    x+=0.1f;  //make bullet keep moving forward
+    if(x>5.f)
+    {
+        x=1.8f;
+    }
+    if(texture != _textureId1) //change texture of bullet from frame to frame
+    {
+        texture = _textureId1;
+    }
+    else
+    {
+        texture = _textureId2;
+    }
+    
+    
+    glutPostRedisplay();
+    glutTimerFunc(25,update,0);
+}
 
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-        glPushMatrix();
-        glRotated(rotAngle, 1, 1, 1);
-        glTranslatef(bul_loc, 0, 0);
-        glScaled(0.05, 0.05, 0.05);
-        glEnable(GL_COLOR_MATERIAL);
-        glColor3f(1, 1, 1);
-        bullet.draw();
-        glPopMatrix();
-        glFlush();
-        
+
+//4-display function
+//4.1-load bullet
+double direction = 0;
+double updown = 0;
+double leftright = 0;
+
+void load_bullet(){
+    glPushMatrix();
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glRotated(direction,0,0,-10);
+    glTranslatef(x,updown,-10);
+    glRotatef(r,0.0f,0.0f,1.0f);
+    glScaled(0.1f, 0.1f, 0.1f);
+    gluQuadricTexture(quad,1);
+    gluSphere(quad,2,20,20);
+    
+    glPopMatrix();
+    
+
+}
+
+//4.2-load hero
+void load_hero(){
+    glPushMatrix();
+    
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, _textureId3);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTranslatef(leftright, updown, -5);
+
+    glRotated(45, 0, 1, 0);
+    hero.draw();
+    
+    glPopMatrix();
+}
+
+//4.3-load gun
+void load_gun(){
+    glPushMatrix();
+    glRotated(direction,0,0,-5);
+    glTranslatef(leftright, updown,-5);
+    glScaled(0.5f, 0.5f, 0.5f);
+    gun.draw();
+    
+    glPopMatrix();
+    
+}
+
+
+void drawScene() {
+    
+    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    //load bullet
+
+        load_bullet();
         std::cout << "Hello, World!\n";
-        bul_loc = bul_loc - 0.02;
-        
 
-    
+    glDisable(GL_TEXTURE_2D);
 
-    
-    glPushMatrix();			// save the current camera transform
-    glRotated(rotAngle, 1, 1, 1);	// rotate by rotAngle about y-axis
-    glScaled(0.3, 0.3, 0.3);
-    glEnable(GL_COLOR_MATERIAL);	// specify object color
-    glColor3f(1.0, 0.5, 0.3);		// redish
-    hero.draw();		// draw the teapot
-    glPopMatrix();			// restore the modelview matrix
-    glFlush();				// force OpenGL to render now
-    
-    glutSwapBuffers();			// make the image visible
-    
 
+    //load hero
+    load_hero();
+    load_gun();
+    
+    glutSwapBuffers();
 }
 
-
-
-void bul_move()
-{
-    display();
-}
-
-
+//5-keyboard function
 void keyboard(unsigned char k, int x, int y)
 {
     switch (k)
     {
         case 'a':
-            rotAngle += 5;			// increase rotation by 5 degrees
+            direction += 5;
             break;
-        case 'l':
-            rotAngle -= 5;			// decrease rotation by 5 degrees
+        case 'w':
+            direction -= 5;
+            break;
+        case 'g':
+             updown +=0.3;
+            break;
+        case 'h':
+            updown -=0.3;
+            break;
+        case 'e':
+            leftright +=0.3;
+            break;
+        case 'r':
+            leftright -=0.3;
             break;
         case 'q':
-            exit(0);			// exit
+            exit(0);
     }
-    
-    glutPostRedisplay();		// redraw the image now
+    glutPostRedisplay();
 }
+
+//6-reshape function
+void handleResize(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(40, (float)w / (float)h, 0.5, 20.0);
+}
+
 
 
 int main(int argc, char * argv[])
 {
 
     glutInit(&argc,argv);
-    
-    init_bull(argc == 2 ? argv[1] : "bullet.obj");
-    init_hero(argc == 2 ? argv[1] : "hero.obj");
-
-    glutInitDisplayMode(GLUT_DOUBLE|GLUT_DEPTH|GLUT_RGB );
-    
-    glutInitWindowPosition(200, 100);
-    glutInitWindowSize(W_fen,H_fen);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitWindowSize(800,800);
+    glutInitWindowPosition(20, 20);
     glutCreateWindow(argv[0]);
     
-    glutDisplayFunc(display);
-    glutKeyboardFunc(keyboard);
-    glutIdleFunc(bul_move);
+    //1-load hero,gun
+    init_hero(argc == 2 ? argv[1] : "hero.obj");
+    init_gun(argc == 2 ? argv[1] : "gun.obj");
     
+    //2-load bullet texture mapping
+    init_bullet_texture();
+    
+    //3-bullet keep rotating
+    glutTimerFunc(25,update,0);
+    
+    //4-display function
+    glutDisplayFunc(drawScene);
+    
+    //5-keyboard function
+    glutKeyboardFunc(keyboard);
+    
+    //6-reshape function
+    glutReshapeFunc(handleResize);
 
+//    glutIdleFunc(bul_move);
+    
     glutMainLoop();
     return 0; 
 }
