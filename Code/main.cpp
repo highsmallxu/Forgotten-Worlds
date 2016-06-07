@@ -9,6 +9,8 @@
 #include <assert.h>
 #include "mesh.h"
 #include "imageloader.h"
+#include "glm/glm.hpp"
+
 
 
 using namespace std;			// make std accessible
@@ -27,6 +29,7 @@ void init_gun(const char * fileName){
 
 //2-load bullet texture mapping
 //2.1-loadTexture
+
 GLuint loadTexture(Image* image) {
     GLuint textureId;
     glGenTextures(1, &textureId); //Make room for our texture
@@ -56,7 +59,7 @@ void init_bullet_texture(){
     quad = gluNewQuadric();
     Image* image1 = loadBMP("bullet1.bmp"); //grey
     Image* image2 = loadBMP("bullet2.bmp"); //red
-    Image* image3 = loadBMP("earth.bmp"); //hero
+    Image* image3 = loadBMP("bullet2.bmp"); //hero
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
@@ -131,6 +134,13 @@ void load_hero(){
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); //
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    glDisable(GL_TEXTURE_2D);
+
+
     glTranslatef(leftright, updown, -5);
 
     glRotated(45, 0, 1, 0);
