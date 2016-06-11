@@ -1,10 +1,13 @@
 #include "mesh.h"
+//#include "glm/glm.hpp"
+
 #include <GLUT/GLUT.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
 #include <float.h>
+
 
 
 Mesh::Mesh(){}
@@ -251,6 +254,7 @@ void Mesh::draw(){
 }
 
 
+
 /************************************************************
  * Fonctions de chargement du maillage
  ************************************************************/
@@ -272,6 +276,7 @@ bool Mesh::loadMesh(const char * filename)
         return false;
 
     float x, y, z;
+    float u,v;
 
     while(in && !feof(in) && fgets(s, LINE_LEN, in))
     {
@@ -282,6 +287,9 @@ bool Mesh::loadMesh(const char * filename)
             if (sscanf(s, "v %f %f %f", &x, &y, &z))
                 vertices.push_back(Vertex(Vec3Df(x,y,z)));
         }
+        
+        
+        
         // face
         else if (strncmp(s, "f ", 2) == 0)
         {
