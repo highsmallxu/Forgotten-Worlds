@@ -3,7 +3,6 @@
 
 #include "Vertex.h"
 #include <vector>
-//#include "glm/glm.hpp"
 
 /************************************************************
  * Class de triangle de base
@@ -33,20 +32,15 @@ public:
     unsigned int v[3];
 };
 
-
-
 /************************************************************
  * Class de maillage basique
  ************************************************************/
 class Mesh {
 public:
     Mesh();
-    inline Mesh (const std::vector<Vertex> & v, const std::vector<Triangle> & t,
-                 const std::vector<Vertex> & e) :
-    vertices (v), triangles (t), texture (e){}
+    inline Mesh (const std::vector<Vertex> & v, const std::vector<Triangle> & t) : vertices (v), triangles (t)  {}
     std::vector<Vertex> vertices;
     std::vector<Triangle> triangles;
-    std::vector<Vertex> texture;
 
     bool loadMesh(const char * filename);
     void computeVertexNormals ();

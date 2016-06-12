@@ -1,65 +1,96 @@
-//
-//  main.cpp
-//  shooting
-//
-//  Created by GAOXiaoXu on 6/7/16.
-//  Copyright © 2016 GAOXiaoXu. All rights reserved.
-//
 
-#include <iostream>
-#include "headers.h"
-
-GLuint elephant;
-float elephantrot;
-char ch='1';
+#include <cstdlib>			// standard definitions
+#include <iostream>			// C++ I/O
+#include <cstdio>			// C I/O (for sprintf)
+#include <cmath>			// standard definitions
+#include <GLUT/GLUT.h>
+#include <stdlib.h>
+#include <math.h>
+#include <assert.h>
+#include "mesh.h"
+#include "imageloader.h"
+#include "glm/glm.hpp"
 
 
-void loadObj(char *fname)
+
+using namespace std;			// make std accessible
+
+
+//0-load bmp [background]
+GLuint background_texture;
+float backgroundX;
+
+GLuint bmp_texture_load(const char *filename, int width, int height)
 {
-    FILE *fp;
-    int read;
-    GLfloat x, y, z;
-    char ch;
-    elephant=glGenLists(1);
-    fp=fopen(fname,"r");
-    if (!fp)
+    GLuint texture;
+    
+    unsigned char * data;
+    
+    FILE * file;
+    
+    file = fopen( filename, "rb" );
+    
+    if ( file == NULL )
     {
-        printf("can't open file %s\n", fname);
-        exit(1);
+        std::cout<<"File not found";
+        return 0;
     }
-    glPointSize(2.0);
-    glNewList(elephant, GL_COMPILE);
+    
+    data = (unsigned char *)malloc( width * height * 3 );
+    //int size = fseek(file,);
+    fread( data, width * height * 3, 1, file );
+    fclose( file );
+    
+    for(int i = 0; i < width * height ; ++i)
     {
-        glPushMatrix();
-        glBegin(GL_POINTS);
-        while(!(feof(fp)))
-        {
-            read=fscanf(fp,"%c %f %f %f",&ch,&x,&y,&z);
-            if(read==4&&ch=='v')
-            {
-                glVertex3f(x,y,z);
-            }
-        }
-        glEnd();
+        int index = i*3;
+        unsigned char B,R;
+        B = data[index];
+        R = data[index+2];
+        
+        data[index] = R;
+        data[index+2] = B;
+        
     }
-    glPopMatrix();
-    glEndList();
-    fclose(fp);
+    
+    
+    glGenTextures( 1, &texture );
+    glBindTexture( GL_TEXTURE_2D, texture );
+    glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
+    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
+    
+    
+    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
+    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
+    gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
+    free( data );
+    
+    std::cout<<"Texture ID: "<<texture;
+    
+    return texture;
+}
+
+void init_background()
+{
+    background_texture = bmp_texture_load("background.bmp", 2040, 768);
+    backgroundX = 0.0;
 }
 
 
-void drawElephant()
-{
-    glPushMatrix();
-    glTranslatef(0,-40.00,-105);
-    glColor3f(1.0,0.23,0.27);
-    glScalef(0.1,0.1,0.1);
-    glRotatef(elephantrot,0,1,0);
-    glCallList(elephant);
-    glPopMatrix();
-    elephantrot=elephantrot+0.6;
-    if(elephantrot>360)elephantrot=elephantrot-360;
+//1-load hero,gun
+Mesh hero;
+Mesh gun;
+
+void init_hero(const char * fileName){
+    hero.loadMesh(fileName);
 }
+void init_gun(const char * fileName){
+    gun.loadMesh(fileName);
+}
+
+//2-load bullet texture mapping
+//2.1-loadTexture
 
 GLuint loadTexture(Image* image) {
     GLuint textureId;
@@ -77,8 +108,10 @@ GLuint loadTexture(Image* image) {
                  image->pixels);               //The actual pixel data
     return textureId; //Returns the id of the texture
 }
-
+//2.2-load Image
 GLuint _textureId1;
+GLuint _textureId2;
+GLuint _textureId3;
 GLUquadric *quad;
 void init_bullet_texture(){
     glEnable(GL_DEPTH_TEST);
@@ -86,94 +119,246 @@ void init_bullet_texture(){
     glEnable(GL_COLOR_MATERIAL);
     
     quad = gluNewQuadric();
-    Image* image1 = loadBMP("hero.bmp"); //grey
+    Image* image1 = loadBMP("bullet1.bmp"); //grey
+    Image* image2 = loadBMP("bullet2.bmp"); //red
+    Image* image3 = loadBMP("bullet2.bmp"); //hero
     _textureId1 = loadTexture(image1);  //grey
-
+    _textureId2 = loadTexture(image2);  //red
+    _textureId3 = loadTexture(image3); //hero
     delete image1;
-
+    delete image2;
+    delete image3;
 }
 
-
-//////////////
-
-Mesh hero;
-void load_hero(const char * fileName){
-    hero.loadMesh(fileName);
-}
-
-
-void init()
+//3-bullet control
+float x=1.8;
+float r;
+GLuint texture;
+void update(int value)
 {
-    glClearColor(0, 0, 0, 0);		// background color
-    glClearDepth(1.0);			// background depth value
+    r+=2.0f; //make bullet keep rotating
+    backgroundX += 0.0015; //background keep moving
+    if(r>360.f)
+    {
+        r-=360;
+    }
+    x+=0.1f;  //make bullet keep moving forward
+    if(x>5.f)
+    {
+        x=1.8f;
+    }
+    if(texture != _textureId1) //change texture of bullet from frame to frame
+    {
+        texture = _textureId1;
+    }
+    else
+    {
+        texture = _textureId2;
+    }
+    
+    
+    glutPostRedisplay();
+    glutTimerFunc(25,update,0);
+}
+
+
+//4-display function
+//4.1-load bullet
+double direction = 0;
+double updown = 0;
+double leftright = 0;
+
+void load_bullet(){
+    glPushMatrix();
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glRotated(direction,0,0,-10);
+    glTranslatef(x,updown,-10);
+    glRotatef(r,0.0f,0.0f,1.0f);
+    glScaled(0.1f, 0.1f, 0.1f);
+    gluQuadricTexture(quad,1);
+    gluSphere(quad,2,20,20);
+    
+    glPopMatrix();
+    
+
+}
+
+//4.2-load hero
+void load_hero(){
+    glPushMatrix();
+    
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, _textureId3);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); //
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    glDisable(GL_TEXTURE_2D);
+
+
+    glTranslatef(leftright, updown, -5);
+
+    glRotated(45, 0, 1, 0);
+    hero.draw();
+    
+    glPopMatrix();
+}
+
+//4.3-load gun
+void load_gun(){
+    glPushMatrix();
+    glRotated(direction,0,0,-5);
+    glTranslatef(leftright, updown,-5);
+    glScaled(0.5f, 0.5f, 0.5f);
+    gun.draw();
+    
+    glPopMatrix();
+    
+}
+
+void load_background()
+{
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(-1.0, 1.0, -1.0, 1.0);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    
+    
+    glLoadIdentity();
+    glDisable(GL_LIGHTING);
+    
+    
+    glColor3f(1,1,1);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, background_texture);
+    
+    
+    // Draw a textured quad
+    glBegin(GL_QUADS);
+    glTexCoord2d(backgroundX, 0); glVertex2f(-1.0,-1.0);
+    glTexCoord2d(backgroundX + 1, 0); glVertex2f(1.0,-1.0);
+    glTexCoord2d(backgroundX + 1, 1); glVertex2f(1.0, 1.0);
+    glTexCoord2d(backgroundX, 1); glVertex2f(-1.0, 1.0);
+    glEnd();
+    
+    
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+    
     
     glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60, 1, 1, 1000);	// setup a perspective projection
+    glPopMatrix();
     
     glMatrixMode(GL_MODELVIEW);
+
+}
+
+
+void drawScene() {
+    
+    glDisable(GL_DEPTH_TEST);
+    
+    //End of loading background
+    load_background();
+    
     glLoadIdentity();
     
-    gluLookAt(				// set up the camera
-              0.0, 0.0, 5.0,		// eye position
-              0.0, 0.0, 0.0,		// lookat position
-              0.0, 1.0, 0.0);		// up direction
+    //load bullet
+
+    load_bullet();
+
+    glDisable(GL_TEXTURE_2D);
     
-    glEnable(GL_DEPTH_TEST);		// enable hidden surface removal
+    //load hero
+    load_hero();
+    load_gun();
     
-    glEnable(GL_LIGHTING);		// enable lighting
-    glEnable(GL_LIGHT0);		// enable
+    glEnable(GL_DEPTH_TEST);
+    glFlush();
     
-    float lpos[] = { 5, 5, 5, 0 };
-    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
-    
-    // glShadeModel(GL_FLAT);		// flat shading
-    glShadeModel(GL_SMOOTH);		// smooth shading
+    glutSwapBuffers();
 }
 
-
-
- void display(){
-     
-     glClear(GL_COLOR_BUFFER_BIT |		// clear the frame buffer (color)
-             GL_DEPTH_BUFFER_BIT);		// clear the depth buffer (depths)
-     
-     glPushMatrix();			// save the current camera transform
-        glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, _textureId1);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
-        glDisable(GL_TEXTURE_2D);
-        glRotated(7, 0, 1, 0);	// rotate by rotAngle about y-axis
-        glEnable(GL_COLOR_MATERIAL);	// specify object color
-     hero.draw();
-     glPopMatrix();			// restore the modelview matrix
-     
-     glFlush();				// force OpenGL to render now
-     glutSwapBuffers();			// make the image visible
-
+//5-keyboard function
+void keyboard(unsigned char k, int x, int y)
+{
+    switch (k)
+    {
+        case 'a':
+            direction += 5;
+            break;
+        case 'w':
+            direction -= 5;
+            break;
+        case 'g':
+             updown +=0.3;
+            break;
+        case 'h':
+            updown -=0.3;
+            break;
+        case 'e':
+            leftright +=0.3;
+            break;
+        case 'r':
+            leftright -=0.3;
+            break;
+        case 'q':
+            exit(0);
+    }
+    glutPostRedisplay();
 }
 
+//6-reshape function
+void handleResize(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(40, (float)w / (float)h, 0.5, 20.0);
+}
 
+int main(int argc, char * argv[])
+{
 
-int main(int argc, char * argv[]) {
-    
     glutInit(&argc,argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitWindowSize(800,800);
+    glutInitWindowSize(1200,800);
     glutInitWindowPosition(20, 20);
     glutCreateWindow(argv[0]);
     
-    load_hero(argc == 2 ? argv[1] : "hero.obj");
+    //0-load background
+    init_background();
+    
+    //1-load hero,gun
+    init_hero(argc == 2 ? argv[1] : "hero.obj");
+    init_gun(argc == 2 ? argv[1] : "gun.obj");
+    
+    //2-load bullet texture mapping
+    init_bullet_texture();
+    
+    //3-bullet keep rotating
+    glutTimerFunc(25,update,0);
+    
+    //4-display function
+    glutDisplayFunc(drawScene);
+    
+    //5-keyboard function
+    glutKeyboardFunc(keyboard);
+    
+    //6-reshape function
+    glutReshapeFunc(handleResize);
 
-    glutDisplayFunc(display);
-    glutIdleFunc(display);
-    
-    init();
-    
+//    glutIdleFunc(bul_move);
     
     glutMainLoop();
-    return 0;
-
+    return 0; 
 }
