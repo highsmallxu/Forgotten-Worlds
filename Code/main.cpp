@@ -7,12 +7,15 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
 #include "mesh.h"
+#include <dirent.h>
 #include "imageloader.h"
 #include "traqueboule.h"
 
 using namespace std;			// make std accessible
 #define PI 3.14159265
+#define HERO_SIZE 10
 
 //****define variables****//
 
@@ -23,9 +26,12 @@ float backgroundX;
 
 ///////objects////////////
 
+//Mesh heros[HERO_SIZE];
+std::vector<Mesh> heros;
 Mesh hero;
 Mesh bird;
 Mesh boss;
+Mesh axe;
 
 ///////lighting////////
 
@@ -50,6 +56,7 @@ float bird_on=3;
 float boss_on=3;
 float r;
 float count_number=0;
+int hero_no=5;
 bool up=true;
 bool down=false;
 bool bird1 = true;
@@ -138,11 +145,6 @@ void computeLighting()
 
 //1-load hero,gun
 
-
-
-void init_hero(const char * fileName){
-    hero.loadMesh(fileName);
-}
 void init_bird(const char * fileName){
     bird.loadMesh(fileName);
 }
@@ -153,7 +155,30 @@ void init_boss(const char * fileName){
     LightColor.push_back(Vec3Df(0,1,0));
     computeLighting();
 }
+void init_axe(const char * fileName){
+    axe.loadMesh(fileName);
+}
+DIR *dir;
+struct dirent *ent;
+vector<string> hero_names;
+string path = "animation/";
+int file_no = 1;
+void init_hero(){
+    if((dir = opendir("animation"))!=NULL){
+        while ((ent = readdir (dir)) != NULL) {
+            if(file_no>3){
+                string hero_name = path + ent->d_name;
+                hero.loadMesh(hero_name.c_str());
+                heros.push_back(hero);
+            }
+            file_no+=1;
+//            printf ("%s\n", ent->d_name);
+//            hero_names.push_back(ent->d_name);
+        }
+        closedir (dir);
+    }
 
+}
 //2-load bullet texture mapping
 //2.1-loadTexture
 
@@ -198,6 +223,9 @@ void init_bullet_texture(){
 
 void update(int value)
 {
+    
+    //read hero animation
+    hero_no+=1;
     
     //bullet keep rotating
     r+=2.0f;
@@ -267,10 +295,10 @@ void update(int value)
     
     //boss show up
     if(!bird1 && !bird2 && !bird3){
-        boss_on-=0.02;
         if(!boss_stop){
-            if(boss_on<0){
-                boss_on=2;
+        boss_on-=0.02;
+            if(boss_on<1.6){
+                boss_on=1.6;
                 boss_stop=true;
             }
         }
@@ -372,12 +400,23 @@ void load_bird(){
 void load_boss(){
     if(!bird1 && !bird2 && !bird3){
         glPushMatrix();
+            glRotated(0, 0, 1, 0);
             glTranslated(boss_on, 0, 0);
             boss.drawWithColors(lighting,1);
         glPopMatrix();
     }
 }
 
+//4.5-load axe
+void load_axe(){
+    if(!bird1 && !bird2 && !bird3){
+        glPushMatrix();
+            glTranslated(boss_on, 1,0);
+            glRotatef(r, 0, 1, 0);
+            axe.drawWithColors(lighting, 1);
+        glPopMatrix();
+    }
+}
 
 //4.5-load background
 void load_background()
@@ -427,6 +466,7 @@ void drawScene() {
     glEnable(GL_LIGHT0);		// enable
     glLightfv(GL_LIGHT0, GL_POSITION, lpos);
 
+
     load_hero();
     load_bullet();
     
@@ -435,6 +475,8 @@ void drawScene() {
     }
 
     load_boss();
+    load_axe();
+    
     
     
 
@@ -531,9 +573,10 @@ int main(int argc, char * argv[])
     init_background();
     
     //1-load hero,gun
-    init_hero(argc == 2 ? argv[1] : "hero.obj");
+    init_hero();
     init_bird(argc == 2 ? argv[1] : "bird.obj");
     init_boss(argc == 2 ? argv[1] : "boss.obj");
+    init_axe(argc == 2 ? argv[1] : "axe.obj");
     
     //2-load bullet texture mapping
     init_bullet_texture();
