@@ -60,6 +60,8 @@ float bird_on=3;
 float boss_on=3;
 float r;
 float count_number=0;
+float boss_lose=0;
+int lose=1;
 bool up=true;
 bool down=false;
 bool bird1 = true;
@@ -67,6 +69,7 @@ bool bird2 = true;
 bool bird3 = true;
 bool boss_stop = false;
 bool new_bullet = false;
+bool boss_survive = true;
 double direction = 90;
 double updown = 0;
 double leftright = 0;
@@ -356,10 +359,22 @@ void update(int value)
     //boss show up
     if(!bird1 && !bird2 && !bird3){
         if(!boss_stop){
-        boss_on-=0.02;
-            if(boss_on<1.6){
-                boss_on=1.6;
-                boss_stop=true;
+            boss_on-=0.02;
+                if(boss_on<1.6){
+                    boss_on=1.6;
+                    boss_stop=true;
+            }
+        }
+        else if(boss_stop){
+            boss_lose+=1;
+            if(boss_lose>150 && boss_lose<300){
+                lose = 2;
+            }
+            else if(boss_lose>300 && boss_lose<500){
+                lose=3;
+            }
+            else if(boss_lose>500){
+                boss_survive=false;
             }
         }
     }
@@ -508,7 +523,7 @@ void load_boss(){
         glPushMatrix();
             glRotated(0, 0, 1, 0);
             glTranslated(boss_on, 0, 0);
-            boss.drawWithColors(lighting,1);
+            boss.drawWithColors(lighting,lose);
         glPopMatrix();
     }
 }
@@ -579,8 +594,11 @@ void drawScene() {
         load_bird();
     }
 
-    load_boss();
-    load_axe();
+    if(boss_survive){
+        load_boss();
+        load_axe();
+    }
+
     
     glFlush();
     glutSwapBuffers();
@@ -596,18 +614,6 @@ void keyboard(unsigned char k, int x, int y)
             break;
         case 'w':
             direction -= 5;
-            break;
-        case 'g':
-            updown +=0.3;
-            break;
-        case 'h':
-            updown -=0.3;
-            break;
-        case 'e':
-            leftright +=0.3;
-            break;
-        case 'r':
-            leftright -=0.3;
             break;
         case 'q':
             exit(0);
