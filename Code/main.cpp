@@ -8,6 +8,7 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
+#include <new>
 #include "mesh.h"
 #include <dirent.h>
 #include "imageloader.h"
@@ -56,14 +57,14 @@ float bird_on=3;
 float boss_on=3;
 float r;
 float count_number=0;
-int hero_no=5;
 bool up=true;
 bool down=false;
 bool bird1 = true;
 bool bird2 = true;
 bool bird3 = true;
 bool boss_stop = false;
-double direction = 90;
+bool new_bullet = false;
+double direction = 20;
 double updown = 0;
 double leftright = 0;
 
@@ -163,20 +164,29 @@ struct dirent *ent;
 vector<string> hero_names;
 string path = "animation/";
 int file_no = 1;
+int hero_n = 1;
+Mesh hero2;
+Mesh *heross = new Mesh[100];
+Mesh test;
 void init_hero(){
     if((dir = opendir("animation"))!=NULL){
         while ((ent = readdir (dir)) != NULL) {
             if(file_no>3){
                 string hero_name = path + ent->d_name;
+                hero_names.push_back(hero_name);
                 hero.loadMesh(hero_name.c_str());
-                heros.push_back(hero);
+//                test.loadMesh("hero.obj");
+
             }
             file_no+=1;
-//            printf ("%s\n", ent->d_name);
-//            hero_names.push_back(ent->d_name);
         }
         closedir (dir);
     }
+    for (hero_n=1;hero_n<=hero_names.size();hero_n++){
+        heross[hero_n].loadMesh(hero_names[hero_n].c_str());
+        heross[hero_n]=heross[hero_n];
+    }
+    
 
 }
 //2-load bullet texture mapping
@@ -208,7 +218,7 @@ void init_bullet_texture(){
     quad = gluNewQuadric();
     Image* image1 = loadBMP("bullet1.bmp"); //grey
     Image* image2 = loadBMP("bullet2.bmp"); //red
-    Image* image3 = loadBMP("bullet2.bmp"); //hero
+    Image* image3 = loadBMP("hero.bmp"); //hero
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
@@ -225,7 +235,18 @@ void update(int value)
 {
     
     //read hero animation
-    hero_no+=1;
+    if(hero_n<40){
+        hero_n+=1;
+    }
+    else{
+        hero_n=1;
+    }
+    
+    if(hero_n==34){
+        new_bullet = true;
+        x=0;
+    }
+
     
     //bullet keep rotating
     r+=2.0f;
@@ -235,11 +256,11 @@ void update(int value)
     }
     
     //bullet keep moving forward
-    x+=0.05f;
-    if(x>4.f)
-    {
-        x=0.f;
-    }
+    x+=0.2f;
+//    if(x>5.f)
+//    {
+//        x=0.f;
+//    }
     
     //bullet change texture
     if(texture != _textureId1)
@@ -308,7 +329,7 @@ void update(int value)
 
     count_number+=1;
     glutPostRedisplay();
-    glutTimerFunc(25,update,0);
+    glutTimerFunc(60,update,0);
 }
 
 
@@ -318,53 +339,60 @@ void update(int value)
 
 void load_bullet(){
     
-    //round bullet
-    glPushMatrix();
+    if(new_bullet){
+        //round bullet
+        glPushMatrix();
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, texture);
-    
+        
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        glTranslated(-1.6, -0.2, -1);
+        
+        glTranslated(-1.5, 0.3, -1);
         glRotated(direction,0,0,1);
         glTranslatef(x,0,0);
-        glScaled(0.05f, 0.05f, 0.05f);
+        glScaled(0.05f, 0.02f, 0.02f);
         gluQuadricTexture(quad,2);
         gluSphere(quad,2,20,20);
-    glPopMatrix();
-    glDisable(GL_TEXTURE_2D);
+        glPopMatrix();
+        glDisable(GL_TEXTURE_2D);
+    }
     
-    
-    //stick weapon
-    glPushMatrix();
-         glEnable(GL_TEXTURE_2D);
-         glBindTexture(GL_TEXTURE_2D, texture);
-         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-         glTranslated(-1.6, -0.2, -1);
-         glRotated(direction,0,0,1);
-         glTranslatef(0,0,0);
-    //     glRotatef(r,0.0f,0.0f,1.0f);
-         glScaled(0.3f, 0.03f, 0.05f);
-         gluQuadricTexture(quad,2);
-         gluSphere(quad,2,20,20);
-         
-    glPopMatrix();
-    glDisable(GL_TEXTURE_2D);
+//    //stick weapon
+//    glPushMatrix();
+//         glEnable(GL_TEXTURE_2D);
+//         glBindTexture(GL_TEXTURE_2D, texture);
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//
+//         glTranslated(-1.6, -0.2, -1);
+//         glRotated(direction,0,0,1);
+//         glTranslatef(0,0,0);
+//    //     glRotatef(r,0.0f,0.0f,1.0f);
+//         glScaled(0.3f, 0.03f, 0.05f);
+//         gluQuadricTexture(quad,2);
+//         gluSphere(quad,2,20,20);
+//         
+//    glPopMatrix();
+//    glDisable(GL_TEXTURE_2D);
 }
 
 //4.2-load hero
+Mesh hero_d;
 void load_hero(){
     glPushMatrix();
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, _textureId3);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glRotated(-20, 0, 1, 0);
-        glTranslated(-2, 0, 0);
-        hero.drawSmooth();
+        glTranslated(-1.6,0,0);
+        glRotated(100, 0, 1, 0);
+
+//        glScaled(1,0.5,0.5);
+        hero_d = heross[hero_n];
+        hero_d.drawSmooth();
+//    test.drawSmooth();
+//    glutSolidTeapot(1.0);
     glPopMatrix();
 }
 
@@ -468,11 +496,14 @@ void drawScene() {
 
 
     load_hero();
-    load_bullet();
     
-    if(count_number>10){
-        load_bird();
-    }
+//    if(hero_n==34){
+        load_bullet();
+//    }
+    
+//    if(count_number>10){
+//        load_bird();
+//    }
 
     load_boss();
     load_axe();
@@ -541,11 +572,11 @@ void init()
     glClearDepth(1.0);			// background depth value
     
     glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
+//    glLoadIdentity();
     gluPerspective(60, 1, 1, 100);	// setup a perspective projection
     
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);  //tricky!!!!!!
+//    glLoadIdentity();
     
     gluLookAt(				// set up the camera
               0.0, 0.0, 4.0,		// eye position
@@ -582,7 +613,7 @@ int main(int argc, char * argv[])
     init_bullet_texture();
     
     //3-bullet keep rotating
-    glutTimerFunc(25,update,0);
+    glutTimerFunc(60,update,0);
     
     //4-display function
     glutDisplayFunc(drawScene);

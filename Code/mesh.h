@@ -41,12 +41,15 @@ public:
 class Mesh {
 public:
     Mesh();
-    inline Mesh (const std::vector<Vertex> & v, const std::vector<Triangle> & t,
-                 const std::vector<Vertex> & e) :
-    vertices (v), triangles (t), texture (e){}
+    inline Mesh (const std::vector<Vertex> & v,
+                 const std::vector<Triangle> & t,
+                 const std::vector<Vertex> & e,
+                 const std::vector<Triangle> & i):
+    vertices (v), triangles (t), texture (e),textureid(i){}
     std::vector<Vertex> vertices;
     std::vector<Triangle> triangles;
     std::vector<Vertex> texture;
+    std::vector<Triangle> textureid;
 
     bool loadMesh(const char * filename);
     void computeVertexNormals ();
