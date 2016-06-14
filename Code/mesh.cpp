@@ -95,6 +95,9 @@ void Mesh::drawSmooth(){
         for(int v = 0; v < 3 ; v++){
             glNormal3f(vertices[triangles[i].v[v]].n[0], vertices[triangles[i].v[v]].n[1], vertices[triangles[i].v[v]].n[2]);
             glVertex3f(vertices[triangles[i].v[v]].p[0], vertices[triangles[i].v[v]].p[1] , vertices[triangles[i].v[v]].p[2]);
+            texture[1];
+
+            glTexCoord2f(texture[textureid[i].v[v]].p[0], texture[textureid[i].v[v]].p[1]);
         }
 
     }
@@ -262,6 +265,7 @@ bool Mesh::loadMesh(const char * filename)
 {
 
     std::vector<int> vhandles;
+    std::vector<int> thandles;
 
     const unsigned int LINE_LEN=256;
     char s[LINE_LEN];
@@ -277,6 +281,8 @@ bool Mesh::loadMesh(const char * filename)
 
     float x, y, z;
     float u,v;
+    float tex[2];
+    
 
     while(in && !feof(in) && fgets(s, LINE_LEN, in))
     {
@@ -288,6 +294,15 @@ bool Mesh::loadMesh(const char * filename)
                 vertices.push_back(Vertex(Vec3Df(x,y,z)));
         }
         
+        // texture
+        
+        if (strncmp(s, "vt", 2) == 0)
+        {
+            if (sscanf(s,"vt %f %f", &u, &v))
+                tex[0]=u;
+                tex[1]=v;
+                texture.push_back(Vertex(Vec3Df(u,v,0)));
+        }
         
         
         // face
@@ -298,6 +313,7 @@ bool Mesh::loadMesh(const char * filename)
             char *p0, *p1(s+2); //place behind the "f "
 
             vhandles.clear();
+            thandles.clear();
 
             while (*p1 == ' ') ++p1; // skip white-spaces
 
@@ -337,10 +353,12 @@ bool Mesh::loadMesh(const char * filename)
                         break;
 
                     case 1: // texture coord
-                        //assert(!vhandles.empty());
-                        //assert((unsigned int)(atoi(p0)-1) < texcoords.size());
-                        //_bi.set_texcoord(vhandles.back(), texcoords[atoi(p0)-1]);
+                        thandles.push_back(atoi(p0)-1);
                         break;
+//                        assert(!vhandles.empty());
+//                        assert((unsigned int)(atoi(p0)-1) < texcoords.size());
+//                        _bi.set_texcoord(vhandles.back(), texcoords[atoi(p0)-1]);
+            
 
                     case 2: // normal
                         //assert(!vhandles.empty());
@@ -366,14 +384,20 @@ bool Mesh::loadMesh(const char * filename)
                 //model is not triangulated, so let us do this on the fly...
                 //to have a more uniform mesh, we add randomization
                 unsigned int k=(false)?(rand()%vhandles.size()):0;
+                unsigned int m=(false)?(rand()%thandles.size()):0;
                 for (unsigned int i=0;i<vhandles.size()-2;++i)
                 {
                     triangles.push_back(Triangle(vhandles[(k+0)%vhandles.size()],vhandles[(k+i+1)%vhandles.size()],vhandles[(k+i+2)%vhandles.size()]));
+//                    textureid.push_back(Triangle);
+                     textureid.push_back(Triangle(thandles[0],thandles[1],thandles[2]));
+//                    textureid.push_back(Triangle(thandles[(m+0)%thandles.size()],thandles[(m+i+1)%thandles.size()],thandles[(m+i+2)%thandles.size()]));
                 }
             }
             else if (vhandles.size()==3)
             {
                 triangles.push_back(Triangle(vhandles[0],vhandles[1],vhandles[2]));
+                textureid.push_back(Triangle(thandles[0],thandles[1],thandles[2]));
+
             }
             else
             {
