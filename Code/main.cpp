@@ -3,7 +3,7 @@
 #include <iostream>			// C++ I/O
 #include <cstdio>			// C I/O (for sprintf)
 #include <cmath>			// standard definitions
-#include <GLUT/GLUT.h>
+#include <GL/GLUT.h>
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
@@ -11,6 +11,7 @@
 #include <new>
 #include "mesh.h"
 #include <dirent.h>
+//#include <io.h>
 #include "imageloader.h"
 #include "traqueboule.h"
 
