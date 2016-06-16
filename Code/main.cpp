@@ -3,7 +3,7 @@
 #include <iostream>			// C++ I/O
 #include <cstdio>			// C I/O (for sprintf)
 #include <cmath>			// standard definitions
-#include <GL/GLUT.h>
+#include <GLUT/GLUT.h>
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
@@ -11,7 +11,6 @@
 #include <new>
 #include "mesh.h"
 #include <dirent.h>
-//#include <io.h>
 #include "imageloader.h"
 #include "traqueboule.h"
 
@@ -50,6 +49,7 @@ GLuint _textureId1;
 GLuint _textureId2;
 GLuint _textureId3;
 GLuint _textureId4;
+GLuint _textureId5;
 GLuint texture;
 GLUquadric *quad;
 
@@ -63,6 +63,7 @@ float r;
 float count_number=0;
 float boss_lose=0;
 int lose=1;
+int head_angle=0;
 bool up=true;
 bool down=false;
 bool bird1 = true;
@@ -71,9 +72,11 @@ bool bird3 = true;
 bool boss_stop = false;
 bool new_bullet = false;
 bool boss_survive = true;
+bool head_up=true;
+bool head_down=false;
 double direction = 90;
-double updown = 0;
-double leftright = 0;
+//double updown = 0;
+//double leftright = 0;
 
 
 //****load bmp [background]****
@@ -156,22 +159,29 @@ std::vector<Vec3Df> lighting_sun;
 Vec3Df computeLighting_sun(Vec3Df & vertexPos, Vec3Df & normal, unsigned int light, unsigned int index)
 {
     
+    
     Vec3Df lightv = LightPos_sun[0] - vertexPos;
-    Vec3Df camerav = CamPos - vertexPos;
-    Vec3Df h = (lightv + camerav)/2;
-    h.normalize();
-    float  H = Vec3Df::dotProduct(h, normal);
-    float  H_e = pow(H,2); //higher-focus
-    return Vec3Df(H_e,H_e,H_e);
+    lightv.normalize();
+    
+    Vec3Df V = getCameraPosition() - vertexPos;
+    V.normalize();
+    Vec3Df H = (V + lightv) / 2;
+    H.normalize();
+    float dLighting = Vec3Df::dotProduct(normal, lightv);
+    float sLighting = Vec3Df::dotProduct(H, normal);
+    sLighting = pow(sLighting, 3);
+    
+    return Vec3Df(dLighting+sLighting,dLighting+sLighting,dLighting+sLighting);
+
 }
 void computeLighting_sun(Mesh mesh_c)
 {
-    std::vector<Vec3Df> *result=&lighting_sun;
+    std::vector<Vec3Df> *result1=&lighting_sun;
     for (unsigned int i=0; i<mesh_c.vertices.size();++i)
     {
-        (*result)[i]=Vec3Df();
+        (*result1)[i]=Vec3Df();
         for (int l=0; l<LightPos_sun.size();++l)
-            (*result)[i]+=computeLighting_sun(mesh_c.vertices[i].p, mesh_c.vertices[i].n, l, i);
+            (*result1)[i]+=computeLighting_sun(mesh_c.vertices[i].p, mesh_c.vertices[i].n, l, i);
     }
 }
 
@@ -183,22 +193,51 @@ void computeLighting_sun(Mesh mesh_c)
 
 void init_bird(const char * fileName){
     bird.loadMesh(fileName);
+    lighting_sun.resize(bird.vertices.size());
+    LightPos_sun.push_back(Vec3Df(3,3,3));
+    computeLighting_sun(bird);
 }
-void init_boss(const char * fileName){
-    boss.loadMesh(fileName);
+Mesh *bossss = new Mesh[100];
+Mesh test2;
+DIR *dir2;
+struct dirent *ent2;
+int file_no2 = 1;
+int boss_n = 1;
+vector<string> boss_names;
+string path2 = "boss_animation/";
+void init_boss(){
+    if((dir2=opendir("boss_animation"))!=NULL){
+        while((ent2 = readdir(dir2)) !=NULL) {
+            if(file_no2>3){
+                string boss_name = path2 + ent2->d_name;
+                boss_names.push_back(boss_name);
+                boss.loadMesh(boss_name.c_str());
+
+            }
+            file_no2+=1;
+        }
+        closedir(dir2);
+    }
+    for(boss_n=1;boss_n<=boss_names.size();boss_n++){
+        test2.loadMesh(boss_names[boss_n].c_str());
+        bossss[boss_n].loadMesh(boss_names[boss_n].c_str());
+        bossss[boss_n]=bossss[boss_n];
+    }
+    
     lighting.resize(boss.vertices.size());
-    LightPos.push_back(Vec3Df(1,2,7));
-    LightColor.push_back(Vec3Df(0,1,0));
+    LightPos.push_back(Vec3Df(3,3,3));
     computeLighting(boss);
 }
+
+
 void init_axe(const char * fileName){
     axe.loadMesh(fileName);
 }
 void init_sun(const char * fileName){
     sun.loadMesh(fileName);
-    lighting_sun.resize(sun.vertices.size());
-    LightPos_sun.push_back(Vec3Df(100,100,100));
-    computeLighting_sun(sun);
+//    lighting_sun.resize(sun.vertices.size());
+//    LightPos_sun.push_back(Vec3Df(2,2,2));
+//    computeLighting_sun(sun);
 }
 
 
@@ -260,18 +299,21 @@ void init_bullet_texture(){
     glEnable(GL_COLOR_MATERIAL);
     
     quad = gluNewQuadric();
-    Image* image1 = loadBMP("bullet1.bmp"); //grey
-    Image* image2 = loadBMP("bullet2.bmp"); //red
+    Image* image1 = loadBMP("texture1.bmp"); //grey
+    Image* image2 = loadBMP("texture2.bmp"); //red
     Image* image3 = loadBMP("hero.bmp"); //hero
-    Image* image4 = loadBMP("skull.bmp");//earth
+    Image* image4 = loadBMP("bird.bmp");//earth
+    Image* image5 = loadBMP("boss.bmp");//boss
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
     _textureId4 = loadTexture(image4); //earth
+    _textureId5 = loadTexture(image5); //boss
     delete image1;
     delete image2;
     delete image3;
     delete image4;
+    delete image5;
 }
 
 
@@ -368,15 +410,41 @@ void update(int value)
         }
         else if(boss_stop){
             boss_lose+=1;
+            
+            if(head_up && !head_down)
+            {
+                head_angle-=2;
+                if(head_angle<-60){
+                    head_up=false;
+                    head_down=true;
+                }
+            }
+            else if(!head_up && head_down)
+            {
+                head_angle+=2;
+                if(head_angle>60){
+                    head_up=true;
+                    head_down=false;
+                }
+            }
+            
+            
             if(boss_lose>150 && boss_lose<300){
                 lose = 2;
             }
             else if(boss_lose>300 && boss_lose<500){
                 lose=3;
             }
-            else if(boss_lose>500){
+            else if(boss_lose>5000){
                 boss_survive=false;
             }
+        }
+        
+        if(boss_n<5){
+            boss_n+=1;
+        }
+        else{
+            boss_n=1;
         }
     }
 
@@ -394,12 +462,12 @@ void draw_light(){
     //turn on the light
     glEnable(GL_LIGHTING);
     glShadeModel(GL_SMOOTH);
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, _textureId1);
-    
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
+//        glEnable(GL_TEXTURE_2D);
+//        glBindTexture(GL_TEXTURE_2D, _textureId1);
+//    
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    
     GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
     GLfloat mat_shininess[] = { 5.0 };
     GLfloat light_position[] = { -0.5, 0.0, 1.0, 0.0 };
@@ -415,11 +483,11 @@ void draw_light(){
     glEnable(GL_DEPTH_TEST);
     
     glPushMatrix();
-    glColor3f(1, 1, 0);
+//    glColor3f(1, 1, 0);
         glTranslatef(0.7,0.8,1);
-        glRotated(r, 1, 0, 0);
-        glScaled(0.1, 0.1, 0.1);
-        sun.drawSmooth();
+        glRotated(90, 0, 1, 0);
+        glScaled(0.5, 0.5, 0.5);
+        sun.draw();
     glPopMatrix();
     
     glPopAttrib();
@@ -470,21 +538,24 @@ void load_hero(){
 
 //4.3-load bird
 void load_bird(){
+    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+    GLfloat mat_shininess[] = { 30.0 };
+    glShadeModel (GL_SMOOTH);
+    
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+    
     if(bird1){
         glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, _textureId4);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
+            glBindTexture(GL_TEXTURE_2D, _textureId1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_REPEAT);
             glTranslated(bird_on,bird_up,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.3, 0.3, 0.3);
+            glScaled(0.4, 0.4, 0.4);
 //            bird.drawWithColors(lighting_sun, 1);
-        bird.drawSmooth();
         glPopMatrix();
         glPopAttrib();
     }
@@ -492,13 +563,13 @@ void load_bird(){
         glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, _textureId4);
+            glBindTexture(GL_TEXTURE_2D, _textureId1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTranslated(bird_on+1,bird_up-0.5,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.3, 0.3, 0.3);
-            bird.drawSmooth();
+            glScaled(0.4, 0.4, 0.4);
+        bird.drawWithColors(lighting_sun, 1);
         glPopMatrix();
         glPopAttrib();
     }
@@ -506,37 +577,61 @@ void load_bird(){
         glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
             glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, _textureId4);
+            glBindTexture(GL_TEXTURE_2D, _textureId1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTranslated(bird_on+1.5,bird_up+0.5,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.3, 0.3, 0.3);
-            bird.drawSmooth();
+            glScaled(0.4, 0.4, 0.4);
+        bird.drawWithColors(lighting_sun,1);
         glPopMatrix();
         glPopAttrib();
     }
 }
 
 //4.4-load boss
+Mesh boss_d;
 void load_boss(){
     if(!bird1 && !bird2 && !bird3){
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
-            glRotated(0, 0, 1, 0);
-            glTranslated(boss_on, 0, 0);
-            boss.drawWithColors(lighting,lose);
+        glDisable(GL_LIGHTING);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, _textureId5);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glScaled(1.8, 1.8, 1.8);
+            glTranslated(boss_on-1.2, 0, 0);
+            glRotated(-90, 0, 1, 0);
+        test = bossss[1];
+        boss_d = bossss[boss_n];
+        glEnable(GL_LIGHTING);
+        boss_d.drawWithColors(lighting, 1);
         glPopMatrix();
+        glPopAttrib();
     }
 }
 
+int angle_delta = 10;
 //4.5-load axe
 void load_axe(){
     if(!bird1 && !bird2 && !bird3){
         glPushMatrix();
-            glTranslated(boss_on, 1,0);
-            glRotatef(r, 0, 1, 0);
-            axe.drawWithColors(lighting, 1);
+            glTranslated(boss_on+0.2,0,0);
+            glRotatef(-90, 0, 1, 0);
+            glRotatef(head_angle, 1, 0, 0);
+            glScaled(0.3, 0.3, 0.3);
+            bird.drawSmooth();
+        
+            glTranslated(0, 0, -0.7);
+            glRotatef(head_angle-10, 1, 0, 0);
+            bird.drawSmooth();
+        
+            glTranslated(0, 0, -0.7);
+            glRotatef(head_angle-10, 1, 0, 0);
+            bird.drawSmooth();
         glPopMatrix();
+    
     }
 }
 
@@ -585,7 +680,7 @@ void drawScene() {
     draw_light();
     
     glEnable(GL_LIGHTING);
-    GLfloat light1_position[] = {1.0,1.0,1.0,1.0};
+    GLfloat light1_position[] = {1.0,1.0,1.0,0.0};
     glLightfv(GL_LIGHT0, GL_POSITION, light1_position);
     glEnable(GL_LIGHT0);
     load_hero();
@@ -667,9 +762,10 @@ int main(int argc, char * argv[])
     //1-load hero,gun
     init_hero();
     init_bird(argc == 2 ? argv[1] : "bird.obj");
-    init_boss(argc == 2 ? argv[1] : "boss.obj");
+    init_boss();
+//    init_boss(argc == 2 ? argv[1] : "boss.obj");
     init_axe(argc == 2 ? argv[1] : "axe.obj");
-    init_sun(argc == 2 ? argv[1] : "sun.obj");
+    init_sun(argc == 2 ? argv[1] : "bird2.obj");
     
     //2-load bullet texture mapping
     init_bullet_texture();
