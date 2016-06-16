@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include "imageloader.h"
 #include "traqueboule.h"
+#include <SDL2/SDL.h>
 
 using namespace std;			// make std accessible
 #define PI 3.14159265
@@ -74,9 +75,16 @@ bool new_bullet = false;
 bool boss_survive = true;
 bool head_up=true;
 bool head_down=false;
-double direction = 90;
+double direction = 50;
 //double updown = 0;
 //double leftright = 0;
+
+
+//parameters for terrain
+std::vector<std::vector<float>> heights;
+float terrain_X;
+float terrain_Y;
+GLuint terrain_texture;
 
 
 //****load bmp [background]****
@@ -118,8 +126,123 @@ GLuint bmp_texture_load(const char *filename, int width, int height)
     return texture;
 }
 
+unsigned char* readBMP(char* filename)
+{
+    int i;
+    FILE* f = fopen(filename, "rb");
+    unsigned char info[54];
+    fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
+    
+    // extract image height and width from header
+    int width = *(int*)&info[18];
+    int height = *(int*)&info[22];
+    
+    int size = 3 * width * height;
+    unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+    fread(data, sizeof(unsigned char), size, f); // read the rest of the data at once
+    fclose(f);
+    
+    for(i = 0; i < size; i += 3)
+    {
+        unsigned char tmp = data[i];
+        data[i] = data[i+2];
+        data[i+2] = tmp;
+    }
+    
+    return data;
+}
+
+
+void loadHeightmap(char* name)
+{
+    unsigned char* image = readBMP(name);
+    
+    SDL_Surface* img = SDL_LoadBMP(name);
+    if(!img)
+    {
+        std::cout << "image is not loaded" << std::endl;
+        return;
+    }
+    std::vector<float> tmp;
+    for(int i = 0; i < img->h; i++)
+    {
+        tmp.clear();
+        for(int j = 0; j < img->w; j++)
+        {
+            tmp.push_back((float)image[(i * img->h + j)*3]/255.0);
+        }
+        
+        heights.push_back(tmp);
+    }
+}
+
+void renderHeightmap(float size, float h)
+{
+    float tile_size = 0.1;
+//    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_LIGHTING);
+    glBindTexture(GL_TEXTURE_2D, terrain_texture);
+    glEnable(GL_TEXTURE_2D);
+    glBegin(GL_QUADS);
+    
+    for(int i = 0; i < heights.size()-1; i++)
+    {
+        for(int j = 0; j < heights[0].size()-1; j++)
+        {
+            glTexCoord2f(i*tile_size, (j+1)*tile_size);
+            glVertex3f(terrain_X + i*size, heights[i][j+1]*h - 0.9,(j+1)*size + 0.5);
+            glTexCoord2f((i+1)*tile_size, (j+1)*tile_size);
+            glVertex3f(terrain_X+ (i+1)*size, heights[i+1][j+1]*h- 0.9, (j+1)*size + 0.5);
+            glTexCoord2f((i+1)*tile_size, j*tile_size);
+            glVertex3f(terrain_X+ (i+1)*size, heights[i+1][j]*h- 0.9, j*size + 0.5);
+            glTexCoord2f(i*tile_size, j*tile_size);
+            glVertex3f(terrain_X+ i*size, heights[i][j]*h- 0.9, j*size + 0.5);
+        }
+    }
+    
+    for(int i = 0; i < heights.size()-1; i++)
+    {
+        for(int j = heights[0].size(); j >=1 ; j--)
+        {
+            glTexCoord2f(i*tile_size, (j+1)*tile_size);
+            glVertex3f((heights[0].size()-2)*size + terrain_Y + i*size, heights[i][j]*h - 0.9,j*size + 0.5);
+            glTexCoord2f((i+1)*tile_size, (j+1)*tile_size);
+            glVertex3f((heights[0].size()-2)*size + terrain_Y+ (i+1)*size, heights[i+1][j]*h- 0.9, j*size + 0.5);
+            glTexCoord2f((i+1)*tile_size, j*tile_size);
+            glVertex3f((heights[0].size()-2)*size + terrain_Y+ (i+1)*size, heights[i+1][j-1]*h- 0.9, (j-1)*size + 0.5);
+            glTexCoord2f(i*tile_size, j*tile_size);
+            glVertex3f((heights[0].size()-2)*size + terrain_Y+ i*size, heights[i][j-1]*h-0.9, (j-1)*size + 0.5);
+        }
+    }
+    
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_LIGHTING);
+    glEnd();
+    
+    terrain_X -= 0.01;
+    terrain_Y -= 0.01;
+    
+    float tmpFloat = 0.0 - (heights[0].size()-1) *size*1.5;
+    
+    if(terrain_X <= tmpFloat)
+    {
+        terrain_X = (heights[0].size()-2)*size * 2 + terrain_Y;
+    }
+    
+    tmpFloat = 0.0 - (heights[0].size()-1)*size*2.5;
+    
+    if(terrain_Y <= tmpFloat)
+    {
+        terrain_Y = terrain_X;
+    }
+}
+
 void init_background()
 {
+    terrain_X = -10;
+    terrain_Y = -10;
+    loadHeightmap("terrain_heightmap.bmp");
+    terrain_texture = bmp_texture_load("terrain_tile.bmp", 1300, 1300);
     background_texture = bmp_texture_load("background.bmp", 2040, 768);
     backgroundX = 0.0;
 }
@@ -302,17 +425,17 @@ void init_bullet_texture(){
     Image* image1 = loadBMP("texture1.bmp"); //grey
     Image* image2 = loadBMP("texture2.bmp"); //red
     Image* image3 = loadBMP("hero.bmp"); //hero
-    Image* image4 = loadBMP("bird.bmp");//earth
+//    Image* image4 = loadBMP("bird.bmp");//earth
     Image* image5 = loadBMP("boss.bmp");//boss
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
-    _textureId4 = loadTexture(image4); //earth
+//    _textureId4 = loadTexture(image4); //earth
     _textureId5 = loadTexture(image5); //boss
     delete image1;
     delete image2;
     delete image3;
-    delete image4;
+//    delete image4;
     delete image5;
 }
 
@@ -555,7 +678,7 @@ void load_bird(){
             glTranslated(bird_on,bird_up,0);
             glRotatef(270,0.0f,1.0f,0.0f);
             glScaled(0.4, 0.4, 0.4);
-//            bird.drawWithColors(lighting_sun, 1);
+            bird.drawWithColors(lighting_sun, 1);
         glPopMatrix();
         glPopAttrib();
     }
@@ -674,8 +797,9 @@ void drawScene() {
     glClear(GL_COLOR_BUFFER_BIT |		// clear the frame buffer (color)
             GL_DEPTH_BUFFER_BIT);		// clear the depth buffer (depths)
     load_background();
+    renderHeightmap(0.1, 0.5);
     glEnable(GL_DEPTH_TEST);
-
+    
 
     draw_light();
     
@@ -694,7 +818,6 @@ void drawScene() {
         load_boss();
         load_axe();
     }
-
     
     glFlush();
     glutSwapBuffers();
@@ -765,7 +888,7 @@ int main(int argc, char * argv[])
     init_boss();
 //    init_boss(argc == 2 ? argv[1] : "boss.obj");
     init_axe(argc == 2 ? argv[1] : "axe.obj");
-    init_sun(argc == 2 ? argv[1] : "bird2.obj");
+//    init_sun(argc == 2 ? argv[1] : "bird2.obj");
     
     //2-load bullet texture mapping
     init_bullet_texture();
