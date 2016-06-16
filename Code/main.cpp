@@ -15,6 +15,7 @@
 #include "traqueboule.h"
 #include <SDL2/SDL.h>
 
+
 using namespace std;			// make std accessible
 #define PI 3.14159265
 #define HERO_SIZE 10
@@ -76,9 +77,6 @@ bool boss_survive = true;
 bool head_up=true;
 bool head_down=false;
 double direction = 50;
-//double updown = 0;
-//double leftright = 0;
-
 
 //parameters for terrain
 std::vector<std::vector<float>> heights;
@@ -179,7 +177,7 @@ void loadHeightmap(char* name)
 void renderHeightmap(float size, float h)
 {
     float tile_size = 0.1;
-//    glClear(GL_COLOR_BUFFER_BIT);
+    //    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_LIGHTING);
     glBindTexture(GL_TEXTURE_2D, terrain_texture);
     glEnable(GL_TEXTURE_2D);
@@ -243,7 +241,7 @@ void init_background()
     terrain_Y = -10;
     loadHeightmap("terrain_heightmap.bmp");
     terrain_texture = bmp_texture_load("terrain_tile.bmp", 1300, 1300);
-    background_texture = bmp_texture_load("background.bmp", 2040, 768);
+    background_texture = bmp_texture_load("background.bmp", 960, 540);
     backgroundX = 0.0;
 }
 //0.3-compute lighting
@@ -425,17 +423,17 @@ void init_bullet_texture(){
     Image* image1 = loadBMP("texture1.bmp"); //grey
     Image* image2 = loadBMP("texture2.bmp"); //red
     Image* image3 = loadBMP("hero.bmp"); //hero
-//    Image* image4 = loadBMP("bird.bmp");//earth
+    Image* image4 = loadBMP("bird.bmp");//earth
     Image* image5 = loadBMP("boss.bmp");//boss
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
-//    _textureId4 = loadTexture(image4); //earth
+    _textureId4 = loadTexture(image4); //earth
     _textureId5 = loadTexture(image5); //boss
     delete image1;
     delete image2;
     delete image3;
-//    delete image4;
+    delete image4;
     delete image5;
 }
 
@@ -552,10 +550,10 @@ void update(int value)
             }
             
             
-            if(boss_lose>150 && boss_lose<300){
+            if(boss_lose>200 && boss_lose<400){
                 lose = 2;
             }
-            else if(boss_lose>300 && boss_lose<500){
+            else if(boss_lose>400 && boss_lose<500){
                 lose=3;
             }
             else if(boss_lose>5000){
@@ -583,27 +581,30 @@ void draw_light(){
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     
     //turn on the light
-    glEnable(GL_LIGHTING);
-    glShadeModel(GL_SMOOTH);
+//    glEnable(GL_LIGHTING);
+//    glShadeModel(GL_SMOOTH);
+//    glEnable(GL_COLOR_MATERIAL);
+//    
 //        glEnable(GL_TEXTURE_2D);
 //        glBindTexture(GL_TEXTURE_2D, _textureId1);
 //    
 //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 //        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 //    
-    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_shininess[] = { 5.0 };
-    GLfloat light_position[] = { -0.5, 0.0, 1.0, 0.0 };
-    glClearColor (0.0, 0.0, 0.0, 0.0);
-    glShadeModel (GL_SMOOTH);
-    
-    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-    
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_DEPTH_TEST);
+//    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+//    GLfloat mat_shininess[] = { 5.0 };
+//    GLfloat light_position[] = { -0.5, 0.0, 1.0, 0.0 };
+//    glClearColor (0.0, 0.0, 0.0, 0.0);
+//    glEnable(GL_NORMALIZE);
+//    
+//    
+//    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+//    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+//    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+//    
+//    glEnable(GL_LIGHTING);
+//    glEnable(GL_LIGHT0);
+//    glEnable(GL_DEPTH_TEST);
     
     glPushMatrix();
 //    glColor3f(1, 1, 0);
@@ -648,8 +649,8 @@ void load_hero(){
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
         glTranslated(-1.6,0,0);
         glRotated(100, 0, 1, 0);
 
@@ -729,7 +730,7 @@ void load_boss(){
         test = bossss[1];
         boss_d = bossss[boss_n];
         glEnable(GL_LIGHTING);
-        boss_d.drawWithColors(lighting, 1);
+        boss_d.drawWithColors(lighting, lose);
         glPopMatrix();
         glPopAttrib();
     }
@@ -740,7 +741,11 @@ int angle_delta = 10;
 void load_axe(){
     if(!bird1 && !bird2 && !bird3){
         glPushMatrix();
-            glTranslated(boss_on+0.2,0,0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, _textureId1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTranslated(boss_on-1.2,0.5,-1);
             glRotatef(-90, 0, 1, 0);
             glRotatef(head_angle, 1, 0, 0);
             glScaled(0.3, 0.3, 0.3);
@@ -753,6 +758,14 @@ void load_axe(){
             glTranslated(0, 0, -0.7);
             glRotatef(head_angle-10, 1, 0, 0);
             bird.drawSmooth();
+        
+        glTranslated(0, 0, -0.7);
+        glRotatef(head_angle-10, 1, 0, 0);
+        bird.drawSmooth();
+        
+        glTranslated(0, 0, -0.7);
+        glRotatef(head_angle-10, 1, 0, 0);
+        bird.drawSmooth();
         glPopMatrix();
     
     }
@@ -797,9 +810,10 @@ void drawScene() {
     glClear(GL_COLOR_BUFFER_BIT |		// clear the frame buffer (color)
             GL_DEPTH_BUFFER_BIT);		// clear the depth buffer (depths)
     load_background();
-    renderHeightmap(0.1, 0.5);
+    renderHeightmap(0.1, 0.6);
+
     glEnable(GL_DEPTH_TEST);
-    
+
 
     draw_light();
     
@@ -818,6 +832,7 @@ void drawScene() {
         load_boss();
         load_axe();
     }
+
     
     glFlush();
     glutSwapBuffers();
@@ -886,9 +901,8 @@ int main(int argc, char * argv[])
     init_hero();
     init_bird(argc == 2 ? argv[1] : "bird.obj");
     init_boss();
-//    init_boss(argc == 2 ? argv[1] : "boss.obj");
     init_axe(argc == 2 ? argv[1] : "axe.obj");
-//    init_sun(argc == 2 ? argv[1] : "bird2.obj");
+//    init_sun(argc == 2 ? argv[1] : "dragon2.obj");
     
     //2-load bullet texture mapping
     init_bullet_texture();
