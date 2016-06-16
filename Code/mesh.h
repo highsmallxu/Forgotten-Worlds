@@ -3,7 +3,7 @@
 
 #include "Vertex.h"
 #include <vector>
-//#include "glm/glm.hpp"
+//#include "glm/glm.hpp"/////
 
 /************************************************************
  * Class de triangle de base

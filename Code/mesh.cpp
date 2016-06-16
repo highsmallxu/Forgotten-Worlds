@@ -1,7 +1,7 @@
 #include "mesh.h"
-//#include "glm/glm.hpp"
+//#include "glm/glm.hpp"//////
 
-#include <GL/GLUT.h>
+#include <GLUT/GLUT.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -115,6 +115,7 @@ void Mesh::drawWithColors(const std::vector<Vec3Df> & colors,int lose){
             glColor3f(color[0], color[1], color[2]);
 			glNormal3f(vertices[triangles[i].v[v]].n[0], vertices[triangles[i].v[v]].n[1], vertices[triangles[i].v[v]].n[2]);
             glVertex3f(vertices[triangles[i].v[v]].p[0], vertices[triangles[i].v[v]].p[1] , vertices[triangles[i].v[v]].p[2]);
+            glTexCoord2f(texture[textureid[i].v[v]].p[0], texture[textureid[i].v[v]].p[1]);
         }
 
     }
@@ -396,7 +397,9 @@ bool Mesh::loadMesh(const char * filename)
             else if (vhandles.size()==3)
             {
                 triangles.push_back(Triangle(vhandles[0],vhandles[1],vhandles[2]));
+                if(thandles.size()!=0){
                 textureid.push_back(Triangle(thandles[0],thandles[1],thandles[2]));
+                }
 
             }
             else
