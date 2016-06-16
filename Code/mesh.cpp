@@ -1,7 +1,7 @@
 #include "mesh.h"
 //#include "glm/glm.hpp"
 
-#include <GLUT/GLUT.h>
+#include <GL/GLUT.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>

@@ -3,7 +3,7 @@
 #include <iostream>			// C++ I/O
 #include <cstdio>			// C I/O (for sprintf)
 #include <cmath>			// standard definitions
-#include <GLUT/GLUT.h>
+#include <GL/GLUT.h>
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
@@ -11,6 +11,7 @@
 #include <new>
 #include "mesh.h"
 #include <dirent.h>
+//#include <io.h>
 #include "imageloader.h"
 #include "traqueboule.h"
 
@@ -33,9 +34,11 @@ Mesh hero;
 Mesh bird;
 Mesh boss;
 Mesh axe;
+Mesh sun;
 
 ///////lighting////////
 
+float lpos[] = { 1, 0.8, 1, 0 };
 std::vector<Vec3Df> lighting;
 std::vector<Vec3Df> LightPos;
 std::vector<Vec3Df> LightColor;
@@ -46,6 +49,7 @@ Vec3Df CamPos = Vec3Df(0.0f,0.0f,4.0f);
 GLuint _textureId1;
 GLuint _textureId2;
 GLuint _textureId3;
+GLuint _textureId4;
 GLuint texture;
 GLUquadric *quad;
 
@@ -57,6 +61,8 @@ float bird_on=3;
 float boss_on=3;
 float r;
 float count_number=0;
+float boss_lose=0;
+int lose=1;
 bool up=true;
 bool down=false;
 bool bird1 = true;
@@ -64,7 +70,8 @@ bool bird2 = true;
 bool bird3 = true;
 bool boss_stop = false;
 bool new_bullet = false;
-double direction = 20;
+bool boss_survive = true;
+double direction = 90;
 double updown = 0;
 double leftright = 0;
 
@@ -132,16 +139,44 @@ Vec3Df computeLighting(Vec3Df & vertexPos, Vec3Df & normal, unsigned int light, 
     
     return Vec3Df(dLighting+sLighting,dLighting+sLighting,dLighting+sLighting);
 }
-void computeLighting()
+void computeLighting(Mesh mesh_c)
 {
     std::vector<Vec3Df> *result=&lighting;
-    for (unsigned int i=0; i<boss.vertices.size();++i)
+    for (unsigned int i=0; i<mesh_c.vertices.size();++i)
     {
         (*result)[i]=Vec3Df();
         for (int l=0; l<LightPos.size();++l)
-            (*result)[i]+=computeLighting(boss.vertices[i].p, boss.vertices[i].n, l, i);
+            (*result)[i]+=computeLighting(mesh_c.vertices[i].p, mesh_c.vertices[i].n, l, i);
     }
 }
+
+std::vector<Vec3Df> LightPos_sun;
+std::vector<Vec3Df> lighting_sun;
+//0.3-compute lighting - sun
+Vec3Df computeLighting_sun(Vec3Df & vertexPos, Vec3Df & normal, unsigned int light, unsigned int index)
+{
+    
+    Vec3Df lightv = LightPos_sun[0] - vertexPos;
+    Vec3Df camerav = CamPos - vertexPos;
+    Vec3Df h = (lightv + camerav)/2;
+    h.normalize();
+    float  H = Vec3Df::dotProduct(h, normal);
+    float  H_e = pow(H,2); //higher-focus
+    return Vec3Df(H_e,H_e,H_e);
+}
+void computeLighting_sun(Mesh mesh_c)
+{
+    std::vector<Vec3Df> *result=&lighting_sun;
+    for (unsigned int i=0; i<mesh_c.vertices.size();++i)
+    {
+        (*result)[i]=Vec3Df();
+        for (int l=0; l<LightPos_sun.size();++l)
+            (*result)[i]+=computeLighting_sun(mesh_c.vertices[i].p, mesh_c.vertices[i].n, l, i);
+    }
+}
+
+
+
 
 
 //1-load hero,gun
@@ -154,11 +189,19 @@ void init_boss(const char * fileName){
     lighting.resize(boss.vertices.size());
     LightPos.push_back(Vec3Df(1,2,7));
     LightColor.push_back(Vec3Df(0,1,0));
-    computeLighting();
+    computeLighting(boss);
 }
 void init_axe(const char * fileName){
     axe.loadMesh(fileName);
 }
+void init_sun(const char * fileName){
+    sun.loadMesh(fileName);
+    lighting_sun.resize(sun.vertices.size());
+    LightPos_sun.push_back(Vec3Df(100,100,100));
+    computeLighting_sun(sun);
+}
+
+
 DIR *dir;
 struct dirent *ent;
 vector<string> hero_names;
@@ -186,6 +229,7 @@ void init_hero(){
         heross[hero_n].loadMesh(hero_names[hero_n].c_str());
         heross[hero_n]=heross[hero_n];
     }
+    
     
 
 }
@@ -219,12 +263,15 @@ void init_bullet_texture(){
     Image* image1 = loadBMP("bullet1.bmp"); //grey
     Image* image2 = loadBMP("bullet2.bmp"); //red
     Image* image3 = loadBMP("hero.bmp"); //hero
+    Image* image4 = loadBMP("skull.bmp");//earth
     _textureId1 = loadTexture(image1);  //grey
     _textureId2 = loadTexture(image2);  //red
     _textureId3 = loadTexture(image3); //hero
+    _textureId4 = loadTexture(image4); //earth
     delete image1;
     delete image2;
     delete image3;
+    delete image4;
 }
 
 
@@ -257,10 +304,6 @@ void update(int value)
     
     //bullet keep moving forward
     x+=0.2f;
-//    if(x>5.f)
-//    {
-//        x=0.f;
-//    }
     
     //bullet change texture
     if(texture != _textureId1)
@@ -317,26 +360,71 @@ void update(int value)
     //boss show up
     if(!bird1 && !bird2 && !bird3){
         if(!boss_stop){
-        boss_on-=0.02;
-            if(boss_on<1.6){
-                boss_on=1.6;
-                boss_stop=true;
+            boss_on-=0.02;
+                if(boss_on<1.6){
+                    boss_on=1.6;
+                    boss_stop=true;
+            }
+        }
+        else if(boss_stop){
+            boss_lose+=1;
+            if(boss_lose>150 && boss_lose<300){
+                lose = 2;
+            }
+            else if(boss_lose>300 && boss_lose<500){
+                lose=3;
+            }
+            else if(boss_lose>500){
+                boss_survive=false;
             }
         }
     }
-    
-    
 
     count_number+=1;
     glutPostRedisplay();
-    glutTimerFunc(60,update,0);
+    glutTimerFunc(30,update,0);
 }
 
 
 //4-display function
+//4.0-draw light
+void draw_light(){
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    
+    //turn on the light
+    glEnable(GL_LIGHTING);
+    glShadeModel(GL_SMOOTH);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, _textureId1);
+    
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+    GLfloat mat_shininess[] = { 5.0 };
+    GLfloat light_position[] = { -0.5, 0.0, 1.0, 0.0 };
+    glClearColor (0.0, 0.0, 0.0, 0.0);
+    glShadeModel (GL_SMOOTH);
+    
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+    
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_DEPTH_TEST);
+    
+    glPushMatrix();
+    glColor3f(1, 1, 0);
+        glTranslatef(0.7,0.8,1);
+        glRotated(r, 1, 0, 0);
+        glScaled(0.1, 0.1, 0.1);
+        sun.drawSmooth();
+    glPopMatrix();
+    
+    glPopAttrib();
+}
 //4.1-load bullet
-
-
 void load_bullet(){
     
     if(new_bullet){
@@ -352,29 +440,12 @@ void load_bullet(){
         glRotated(direction,0,0,1);
         glTranslatef(x,0,0);
         glScaled(0.05f, 0.02f, 0.02f);
-        gluQuadricTexture(quad,2);
+        gluQuadricTexture(quad,3);
         gluSphere(quad,2,20,20);
         glPopMatrix();
         glDisable(GL_TEXTURE_2D);
     }
-    
-//    //stick weapon
-//    glPushMatrix();
-//         glEnable(GL_TEXTURE_2D);
-//         glBindTexture(GL_TEXTURE_2D, texture);
-//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//
-//         glTranslated(-1.6, -0.2, -1);
-//         glRotated(direction,0,0,1);
-//         glTranslatef(0,0,0);
-//    //     glRotatef(r,0.0f,0.0f,1.0f);
-//         glScaled(0.3f, 0.03f, 0.05f);
-//         gluQuadricTexture(quad,2);
-//         gluSphere(quad,2,20,20);
-//         
-//    glPopMatrix();
-//    glDisable(GL_TEXTURE_2D);
+
 }
 
 //4.2-load hero
@@ -383,44 +454,67 @@ void load_hero(){
     glPushMatrix();
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, _textureId3);
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
         glTranslated(-1.6,0,0);
         glRotated(100, 0, 1, 0);
 
-//        glScaled(1,0.5,0.5);
         hero_d = heross[hero_n];
         hero_d.drawSmooth();
-//    test.drawSmooth();
-//    glutSolidTeapot(1.0);
     glPopMatrix();
 }
+
 
 //4.3-load bird
 void load_bird(){
     if(bird1){
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, _textureId4);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_REPEAT);
             glTranslated(bird_on,bird_up,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.5, 0.5, 0.5);
-            bird.drawSmooth();
+            glScaled(0.3, 0.3, 0.3);
+//            bird.drawWithColors(lighting_sun, 1);
+        bird.drawSmooth();
         glPopMatrix();
+        glPopAttrib();
     }
     if(bird2){
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, _textureId4);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTranslated(bird_on+1,bird_up-0.5,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.5, 0.5, 0.5);
+            glScaled(0.3, 0.3, 0.3);
             bird.drawSmooth();
         glPopMatrix();
+        glPopAttrib();
     }
     if(bird3){
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
         glPushMatrix();
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, _textureId4);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTranslated(bird_on+1.5,bird_up+0.5,0);
             glRotatef(270,0.0f,1.0f,0.0f);
-            glScaled(0.5, 0.5, 0.5);
+            glScaled(0.3, 0.3, 0.3);
             bird.drawSmooth();
         glPopMatrix();
+        glPopAttrib();
     }
 }
 
@@ -430,7 +524,7 @@ void load_boss(){
         glPushMatrix();
             glRotated(0, 0, 1, 0);
             glTranslated(boss_on, 0, 0);
-            boss.drawWithColors(lighting,1);
+            boss.drawWithColors(lighting,lose);
         glPopMatrix();
     }
 }
@@ -449,6 +543,7 @@ void load_axe(){
 //4.5-load background
 void load_background()
 {
+    
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -460,7 +555,6 @@ void load_background()
         glColor3f(1,1,1);
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, background_texture);
-    
     
     // Draw a textured quad
     glBegin(GL_QUADS);
@@ -479,52 +573,35 @@ void load_background()
     
 }
 
-float lpos[] = { 1, 1, 1, 0 };
 void drawScene() {
     
     glDisable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT |		// clear the frame buffer (color)
             GL_DEPTH_BUFFER_BIT);		// clear the depth buffer (depths)
-    
-
     load_background();
-    
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_LIGHTING);		// enable lighting
-    glEnable(GL_LIGHT0);		// enable
-    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
 
 
+    draw_light();
+    
+    glEnable(GL_LIGHTING);
+    GLfloat light1_position[] = {1.0,1.0,1.0,1.0};
+    glLightfv(GL_LIGHT0, GL_POSITION, light1_position);
+    glEnable(GL_LIGHT0);
     load_hero();
+    load_bullet();
     
-//    if(hero_n==34){
-        load_bullet();
-//    }
-    
-//    if(count_number>10){
-//        load_bird();
-//    }
+    if(count_number>10){
+        load_bird();
+    }
 
-    load_boss();
-    load_axe();
-    
-    
-    
-
-
-//
-//    glLoadIdentity();
-//    
-//    //load bullet
-//    
-//    load_bullet();
-//    
-//    glDisable(GL_TEXTURE_2D);
-    
+    if(boss_survive){
+        load_boss();
+        load_axe();
+    }
 
     
     glFlush();
-    
     glutSwapBuffers();
 }
 
@@ -538,18 +615,6 @@ void keyboard(unsigned char k, int x, int y)
             break;
         case 'w':
             direction -= 5;
-            break;
-        case 'g':
-            updown +=0.3;
-            break;
-        case 'h':
-            updown -=0.3;
-            break;
-        case 'e':
-            leftright +=0.3;
-            break;
-        case 'r':
-            leftright -=0.3;
             break;
         case 'q':
             exit(0);
@@ -584,10 +649,6 @@ void init()
               0.0, 1.0, 0.0);		// up direction
     
     glEnable(GL_DEPTH_TEST);		// enable hidden surface removal
-    
-//    glEnable(GL_LIGHTING);		// enable lighting
-//    glEnable(GL_LIGHT0);		// enable
-//    glLightfv(GL_LIGHT0, GL_POSITION, lpos);
 
 }
 
@@ -608,12 +669,13 @@ int main(int argc, char * argv[])
     init_bird(argc == 2 ? argv[1] : "bird.obj");
     init_boss(argc == 2 ? argv[1] : "boss.obj");
     init_axe(argc == 2 ? argv[1] : "axe.obj");
+    init_sun(argc == 2 ? argv[1] : "sun.obj");
     
     //2-load bullet texture mapping
     init_bullet_texture();
     
     //3-bullet keep rotating
-    glutTimerFunc(60,update,0);
+    glutTimerFunc(30,update,0);
     
     //4-display function
     glutDisplayFunc(drawScene);
